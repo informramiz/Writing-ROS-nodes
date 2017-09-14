@@ -1,0 +1,2 @@
+- setup-file:
+    local-name: /home/student/Writing-ROS-nodes/catkin_ws/devel/setup.sh
