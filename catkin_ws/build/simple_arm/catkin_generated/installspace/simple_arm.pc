@@ -3,6 +3,6 @@ prefix=/home/student/Writing-ROS-nodes/catkin_ws/install
 Name: simple_arm
 Description: Description of simple_arm
 Version: 0.0.0
-Cflags: -I/home/student/Writing-ROS-nodes/catkin_ws/install/include
+Cflags: 
 Libs: -L/home/student/Writing-ROS-nodes/catkin_ws/install/lib 
 Requires: 
