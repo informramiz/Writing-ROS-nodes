@@ -1,0 +1,101 @@
+#!/usr/bin/env python
+
+import math
+import rospy
+from sensor_msgs.msg import Image, JointState
+from simple_arm.srv import *
+
+class LookAway(object):
+	def __init__(self):
+		#initialize node
+		rospy.init_node('look_away')
+
+		#subscribe for joint states movement updates
+		self.joint_states_sub = rospy.Subscriber('/simple_arm/joint_states', 				JointState, self.joint_states_callback)
+		#subscribe for camera image updates
+		self.camera_sub = rospy.Subscriber('rgb_camera/image_raw', Image, 				self.rgb_camera_image_callback)
+
+		#connect to safe_move service
+		self.safe_move_service = rospy.ServiceProxy('/arm_mover/safe_move', 				GoToPosition)
+
+		#flag to indicate if arm is moving
+		self.is_arm_moving = False
+		#last position joint state
+		self.last_joints_position = None
+
+		#block until shutdown signal is received from ROS
+		rospy.spin()
+		
+
+	def is_image_uniform(self, image):
+		return all(value == image[0] for value in image)
+
+	def are_coordinates_equal(self, coord_1, coord_2):
+		if coord_1 is None or coord_2 is None:
+			return False
+		tolerance = 0.0005
+		result = abs(coord_1[0] - coord_2[0]) <= abs(tolerance)
+		result = result and abs(coord_1[1] - coord_2[1]) <= abs(tolerance)
+
+		return True
+
+	"""
+	Callback method, will be called by '/simple_arm/joint_states' topic 		subscriber
+	"""
+	def joint_states_callback(self, data):
+		#check if last position and current joint state 
+		#positions are same
+		if self.are_coordinates_equal(data.position, 					self.last_joints_position):
+			#arm is not moving
+			self.is_arm_moving = False
+		else:
+			#arm is moving so update flags and position
+			self.last_joints_position = data.position
+			self.is_arm_moving = True
+
+	
+
+	"""
+	Callback method, will be called by '/rgb_camera/image_raw' topic subscriber
+	"""
+	def rgb_camera_image_callback(self, image):
+		#check if arm is not moving and camer is pointing towards
+		#uniform image (sky)
+		if not self.is_arm_moving and self.is_image_uniform(image.data):
+			#move camera towards something more interesting
+			try:
+				#send a request to safe_move service to move 
+				#the camera to something more interesting
+
+				#wait until service is available
+				rospy.wait_for_service('/arm_mover/safe_move')
+
+				#make a request object 				
+				request = GoToPositionRequest()
+				request.joint_1 = 1.57
+				request.joint_2 = 1.57
+				
+				#send request ot service, response of the service 
+				#is total time elapsed to make the requested move
+				elapsed_time = self.safe_move_service(request)
+				
+				#log a warning 
+				rospy.logwarn("Camera detecting uniform image. \
+				Elapsed time to look at something nicer: %s\n", 				elapsed_time)
+			except rospy.ServiceException, e:
+				rospy.logwarn("Service call failed: %s", e)
+
+
+
+if __name__ == '__main__':
+	try:
+		LookAway()
+	except rospy.ROSInterruptException:
+		pass
+
+
+
+
+
+
+
